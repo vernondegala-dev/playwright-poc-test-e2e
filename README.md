@@ -7,7 +7,7 @@
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-ready-326CE5?logo=kubernetes)](https://kubernetes.io)
 [![Jenkins](https://img.shields.io/badge/Jenkins-pipeline-D24939?logo=jenkins)](https://jenkins.io)
 
-A production-grade E2E test automation framework for [rahulshettyacademy.com](https://rahulshettyacademy.com/loginpagePractise/) built with **Playwright**, **Pytest**, **Page Object Model**, and an AI-powered **Test QA Agent** for self-healing and automatic test generation.
+A production-grade E2E test automation framework built with **Playwright**, **Pytest**, **Page Object Model**, and an AI-powered **Test QA Agent** for self-healing and automatic test generation. Learned from Udemy class.
 
 ---
 
@@ -29,7 +29,7 @@ A production-grade E2E test automation framework for [rahulshettyacademy.com](ht
 
 ## What It Is
 
-This framework provides complete end-to-end test coverage for the Rahul Shetty Academy e-commerce demo site. It tests three core flows across 26 test scenarios:
+This framework provides complete end-to-end test coverage for the e-commerce demo site. It tests three core flows across 26 test scenarios:
 
 | Flow | Tests | Coverage |
 |---|---|---|
@@ -98,8 +98,8 @@ The entire infrastructure is codified for **Jenkins CI/CD**, **Docker**, and **K
                             ▼
                 ┌─────────────────────┐
                 │   Target Website    │
-                │ rahulshettyacademy  │
-                │   .com             │
+                │ test site           │
+                │   .com              │
                 └─────────────────────┘
 ```
 
@@ -374,21 +374,21 @@ python run_agent.py heal
 
 All configuration is driven by environment variables, defined in `src/utils/config.py`:
 
-| Variable | Default | Description |
-|---|---|---|
-| `BASE_URL` | `https://rahulshettyacademy.com` | Target site base URL |
-| `TEST_USERNAME` | `rahulshettyacademy` | Valid login username |
-| `TEST_PASSWORD` | `` | Valid login password |
-| `HEADLESS` | `true` | Run browser in headless mode |
-| `BROWSER` | `chromium` | Browser engine (chromium/firefox/webkit) |
-| `PLAYWRIGHT_TIMEOUT` | `30000` | Default timeout in ms |
-| `VIEWPORT_WIDTH` | `1280` | Browser viewport width |
-| `VIEWPORT_HEIGHT` | `720` | Browser viewport height |
-| `TEST_RETRIES` | `2` | Number of retry attempts for flaky tests |
-| `SLOW_MO` | `0` | Slow motion delay in ms |
-| `TEST_ENV` | `production` | Environment label |
-| `SCREENSHOT_DIR` | `screenshots` | Failure screenshot output directory |
-| `REPORT_DIR` | `reports` | Test report output directory |
+| Variable | Default              | Description |
+|---|----------------------|---|
+| `BASE_URL` | `https: //vvv . com` | Target site base URL |
+| `TEST_USERNAME` | ``                   | Valid login username |
+| `TEST_PASSWORD` | ``                   | Valid login password |
+| `HEADLESS` | `true`               | Run browser in headless mode |
+| `BROWSER` | `chromium`           | Browser engine (chromium/firefox/webkit) |
+| `PLAYWRIGHT_TIMEOUT` | `30000`              | Default timeout in ms |
+| `VIEWPORT_WIDTH` | `1280`               | Browser viewport width |
+| `VIEWPORT_HEIGHT` | `720`                | Browser viewport height |
+| `TEST_RETRIES` | `2`                  | Number of retry attempts for flaky tests |
+| `SLOW_MO` | `0`                  | Slow motion delay in ms |
+| `TEST_ENV` | `production`         | Environment label |
+| `SCREENSHOT_DIR` | `screenshots`        | Failure screenshot output directory |
+| `REPORT_DIR` | `reports`            | Test report output directory |
 
 ---
 
@@ -556,7 +556,7 @@ metadata:
 2. **ConfigMap** (`configmap.yaml`):
 ```yaml
 data:
-  BASE_URL: "https://rahulshettyacademy.com"
+  BASE_URL: "https:// vvvv . com"
   HEADLESS: "true"
   BROWSER: "chromium"
   PLAYWRIGHT_TIMEOUT: "30000"
