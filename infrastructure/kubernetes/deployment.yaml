@@ -1,0 +1,97 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: playwright-e2e-runner
+  namespace: playwright-e2e
+  labels:
+    app: playwright-e2e
+    component: test-runner
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: playwright-e2e
+      component: test-runner
+  template:
+    metadata:
+      labels:
+        app: playwright-e2e
+        component: test-runner
+    spec:
+      serviceAccountName: playwright-sa
+      containers:
+        - name: playwright
+          image: ghcr.io/your-org/playwright-e2e:latest
+          imagePullPolicy: Always
+          command:
+            - "python3"
+            - "-m"
+            - "pytest"
+          args:
+            - "tests/"
+            - "--browser=chromium"
+            - "--headless"
+            - "--html=reports/report.html"
+            - "--self-contained-html"
+            - "--junitxml=reports/junit.xml"
+            - "-v"
+          envFrom:
+            - configMapRef:
+                name: playwright-config
+          env:
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "4Gi"
+              cpu: "2"
+          volumeMounts:
+            - name: reports
+              mountPath: /app/reports
+            - name: screenshots
+              mountPath: /app/screenshots
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+            runAsUser: 1001
+      volumes:
+        - name: reports
+          emptyDir: {}
+        - name: screenshots
+          emptyDir: {}
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: playwright-sa
+  namespace: playwright-e2e
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: playwright-role
+  namespace: playwright-e2e
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: playwright-rolebinding
+  namespace: playwright-e2e
+subjects:
+  - kind: ServiceAccount
+    name: playwright-sa
+    namespace: playwright-e2e
+roleRef:
+  kind: Role
+  name: playwright-role
+  apiGroup: rbac.authorization.k8s.io

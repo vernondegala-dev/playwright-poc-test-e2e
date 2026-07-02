@@ -1,0 +1,237 @@
+pipeline {
+    agent {
+        kubernetes {
+            label "playwright-agent"
+            yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+    - name: playwright
+      image: mcr.microsoft.com/playwright:v1.50.0-jammy
+      command: ["sleep", "infinity"]
+      resources:
+        requests:
+          memory: "2Gi"
+          cpu: "1"
+        limits:
+          memory: "4Gi"
+          cpu: "2"
+      env:
+        - name: BASE_URL
+          value: "${env.BASE_URL ?: 'https://rahulshettyacademy.com'}"
+        - name: HEADLESS
+          value: "true"
+        - name: PLAYWRIGHT_TIMEOUT
+          value: "30000"
+        - name: TEST_RETRIES
+          value: "2"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+      tty: true
+"""
+        }
+    }
+
+    environment {
+        PYTHON_VERSION = "3.11"
+        REPORT_DIR = "reports"
+        SCREENSHOT_DIR = "screenshots"
+        ALLURE_RESULTS = "allure-results"
+    }
+
+    stages {
+        stage("Checkout") {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage("Setup Python") {
+            steps {
+                container("playwright") {
+                    sh """
+                        python3 --version
+                        pip3 install --upgrade pip
+                        pip3 install -r requirements.txt
+                        playwright install chromium --with-deps
+                    """
+                }
+            }
+        }
+
+        stage("Run Test Generator") {
+            steps {
+                container("playwright") {
+                    sh """
+                        python3 -c "
+                        from src.agent.test_generator import generator
+                        generated = generator.generate_all_tests()
+                        gaps = generator.coverage_gap_analysis()
+                        print(f'Generated: {generated}')
+                        print(f'Coverage gaps: {gaps}')
+                        "
+                    """
+                }
+            }
+        }
+
+        stage("Run Smoke Tests") {
+            steps {
+                container("playwright") {
+                    sh """
+                        mkdir -p ${REPORT_DIR} ${SCREENSHOT_DIR}
+                        python3 -m pytest tests/ -m smoke \
+                            --browser=chromium \
+                            --headless \
+                            --junitxml=${REPORT_DIR}/junit-smoke.xml \
+                            --html=${REPORT_DIR}/smoke-report.html \
+                            --self-contained-html \
+                            --alluredir=${ALLURE_RESULTS} \
+                            || true
+                    """
+                }
+            }
+        }
+
+        stage("Run Regression Tests") {
+            steps {
+                container("playwright") {
+                    sh """
+                        python3 -m pytest tests/ -m regression \
+                            --browser=chromium \
+                            --headless \
+                            --junitxml=${REPORT_DIR}/junit-regression.xml \
+                            --html=${REPORT_DIR}/regression-report.html \
+                            --self-contained-html \
+                            --alluredir=${ALLURE_RESULTS} \
+                            || true
+                    """
+                }
+            }
+        }
+
+        stage("Self-Heal Flaky Tests") {
+            steps {
+                container("playwright") {
+                    script {
+                        def flakyTests = sh(
+                            script: """
+                                python3 -c "
+                                from src.agent.self_healer import healer
+                                from pathlib import Path
+                                import json
+
+                                db_path = Path('reports/heal_db.json')
+                                if db_path.exists():
+                                    data = json.loads(db_path.read_text())
+                                    flaky = [r['test_name'] for r in data if data.count(r) > 1]
+                                    print(json.dumps(list(set(flaky))))
+                                else:
+                                    print('[]')
+                                "
+                            """,
+                            returnStdout: true
+                        ).trim()
+
+                        if (flakyTests && flakyTests != "[]") {
+                            echo "Flaky tests detected: ${flakyTests}"
+                            sh """
+                                python3 -c "
+                                from src.agent.self_healer import healer
+                                import json
+                                flaky = json.loads('${flakyTests}')
+                                for test in flaky:
+                                    code = healer.generate_healed_test(test)
+                                    if code:
+                                        path = f'tests/test_healed_{test}.py'
+                                        with open(path, 'w') as f:
+                                            f.write(code)
+                                        print(f'Generated healed test: {path}')
+                                "
+                            """
+                        } else {
+                            echo "No flaky tests detected"
+                        }
+                    }
+                }
+            }
+        }
+
+        stage("Re-run with Retries") {
+            steps {
+                container("playwright") {
+                    sh """
+                        python3 -m pytest tests/ \
+                            --browser=chromium \
+                            --headless \
+                            --reruns=2 \
+                            --only-rerun=flaky \
+                            --junitxml=${REPORT_DIR}/junit-final.xml \
+                            --html=${REPORT_DIR}/final-report.html \
+                            --self-contained-html \
+                            || true
+                    """
+                }
+            }
+        }
+
+        stage("Generate Allure Report") {
+            steps {
+                container("playwright") {
+                    sh """
+                        if [ -d "${ALLURE_RESULTS}" ] && [ "$(ls -A ${ALLURE_RESULTS})" ]; then
+                            pip3 install allure-pytest
+                            echo "Allure results available"
+                        else
+                            echo "No Allure results to process"
+                        fi
+                    """
+                }
+            }
+        }
+
+        stage("Archive Artifacts") {
+            steps {
+                archiveArtifacts artifacts: "${REPORT_DIR}/**/*, ${SCREENSHOT_DIR}/**/*, ${ALLURE_RESULTS}/**/*", allowEmptyArchive: true
+                junit testResults: "${REPORT_DIR}/junit-*.xml", allowEmptyResults: true
+                publishHTML([
+                    allowMissing: true,
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true,
+                    reportDir: REPORT_DIR,
+                    reportFiles: "final-report.html",
+                    reportName: "Playwright E2E Test Report"
+                ])
+            }
+        }
+
+        stage("Notify") {
+            steps {
+                script {
+                    def currentResult = currentBuild.currentResult
+                    if (currentResult == "UNSTABLE" || currentResult == "FAILURE") {
+                        echo "Build ${currentResult}. Check test reports for details."
+                    } else {
+                        echo "All tests passed successfully!"
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+        success {
+            echo "Pipeline completed successfully"
+        }
+        failure {
+            echo "Pipeline failed"
+        }
+        unstable {
+            echo "Pipeline completed with unstable tests"
+        }
+    }
+}

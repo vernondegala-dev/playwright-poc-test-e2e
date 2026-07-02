@@ -1,0 +1,60 @@
+version: "3.9"
+
+services:
+  playwright-tests:
+    build:
+      context: ..
+      dockerfile: infrastructure/docker/Dockerfile
+    container_name: playwright-e2e-tests
+    environment:
+      - BASE_URL=https://rahulshettyacademy.com
+      - HEADLESS=true
+      - BROWSER=chromium
+      - PLAYWRIGHT_TIMEOUT=30000
+      - TEST_RETRIES=2
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ../reports:/app/reports
+      - ../screenshots:/app/screenshots
+    command: >
+      sh -c "
+        python3 -m pytest tests/ -m smoke --browser=chromium --headless
+        --html=reports/smoke-report.html --self-contained-html -v;
+        python3 -m pytest tests/ -m regression --browser=chromium --headless
+        --html=reports/regression-report.html --self-contained-html -v;
+        echo 'All tests completed'
+      "
+    networks:
+      - test-network
+    restart: "no"
+
+  test-agent:
+    build:
+      context: ..
+      dockerfile: infrastructure/docker/Dockerfile
+    container_name: test-qa-agent
+    environment:
+      - BASE_URL=https://rahulshettyacademy.com
+      - HEADLESS=true
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ../reports:/app/reports
+      - ../tests:/app/tests
+    command: >
+      sh -c "
+        python3 -c '
+        from src.agent.test_generator import generator;
+        from src.agent.self_healer import healer;
+        generated = generator.generate_all_tests();
+        gaps = generator.coverage_gap_analysis();
+        print(f\"Generated test files: {generated}\");
+        print(f\"Coverage gaps: {gaps}\");
+        '
+      "
+    networks:
+      - test-network
+    restart: "no"
+
+networks:
+  test-network:
+    driver: bridge

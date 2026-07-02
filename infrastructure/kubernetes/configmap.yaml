@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: playwright-config
+  namespace: playwright-e2e
+data:
+  BASE_URL: "https://rahulshettyacademy.com"
+  HEADLESS: "true"
+  BROWSER: "chromium"
+  PLAYWRIGHT_TIMEOUT: "30000"
+  TEST_RETRIES: "2"
+  TEST_ENV: "production"

@@ -1,0 +1,32 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+metadata:
+  name: playwright-e2e
+
+namespace: playwright-e2e
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - deployment.yaml
+  - service.yaml
+  - job.yaml
+
+commonLabels:
+  app: playwright-e2e
+  managed-by: kustomize
+
+configMapGenerator:
+  - name: playwright-config
+    literals:
+      - BASE_URL=https://rahulshettyacademy.com
+      - HEADLESS=true
+      - BROWSER=chromium
+      - PLAYWRIGHT_TIMEOUT=30000
+      - TEST_RETRIES=2
+      - TEST_ENV=production
+
+images:
+  - name: ghcr.io/your-org/playwright-e2e
+    newName: playwright-e2e
+    newTag: latest

@@ -1,0 +1,54 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: playwright-e2e-job
+  namespace: playwright-e2e
+  labels:
+    app: playwright-e2e
+    component: job-runner
+spec:
+  ttlSecondsAfterFinished: 86400
+  backoffLimit: 2
+  activeDeadlineSeconds: 1800
+  template:
+    spec:
+      containers:
+        - name: playwright
+          image: ghcr.io/your-org/playwright-e2e:latest
+          command:
+            - "python3"
+            - "-m"
+            - "pytest"
+          args:
+            - "tests/"
+            - "--browser=chromium"
+            - "--headless"
+            - "-v"
+            - "--html=reports/report.html"
+            - "--self-contained-html"
+            - "--junitxml=reports/junit.xml"
+            - "--reruns=2"
+          envFrom:
+            - configMapRef:
+                name: playwright-config
+          env:
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "4Gi"
+              cpu: "2"
+          volumeMounts:
+            - name: reports
+              mountPath: /app/reports
+            - name: screenshots
+              mountPath: /app/screenshots
+      volumes:
+        - name: reports
+          emptyDir: {}
+        - name: screenshots
+          emptyDir: {}
+      restartPolicy: Never

@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: playwright-e2e-service
+  namespace: playwright-e2e
+  labels:
+    app: playwright-e2e
+    component: test-runner
+spec:
+  selector:
+    app: playwright-e2e
+    component: test-runner
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP
